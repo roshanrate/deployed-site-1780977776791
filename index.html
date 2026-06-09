@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full w-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Peer chat // Liquid P2P</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <style>
+    /* Custom thin scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    
+    /* Background Base */
+    body {
+      background-color: #050508;
+      background-image: radial-gradient(circle at 50% 50%, #0c0b11 0%, #050508 100%);
+    }
+
+    /* Keyframes for the Liquid Fluid background shapes */
+    @keyframes fluid-motion-1 {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(40px, -60px) scale(1.15); }
+      66% { transform: translate(-30px, 30px) scale(0.9); }
+    }
+    @keyframes fluid-motion-2 {
+      0%, 100% { transform: translate(0px, 0px) scale(1.1); }
+      33% { transform: translate(-50px, 50px) scale(0.95); }
+      66% { transform: translate(40px, -30px) scale(1.15); }
+    }
+
+    .animate-fluid-1 {
+      animation: fluid-motion-1 16s infinite alternate ease-in-out;
+    }
+    .animate-fluid-2 {
+      animation: fluid-motion-2 22s infinite alternate-reverse ease-in-out 1.5s;
+    }
+
+    input, button {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body class="h-[100dvh] w-screen overflow-hidden flex items-center justify-center p-0 md:p-4 text-zinc-100 antialiased relative">
+
+  <!-- ================= LIQUID FLUID SPHERES (Behind the Glass Plate) ================= -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    <div class="absolute top-[10%] left-[5%] w-[300px] h-[300px] rounded-full bg-gradient-to-tr from-indigo-600/25 to-purple-600/25 blur-[90px] animate-fluid-1"></div>
+    <div class="absolute bottom-[10%] right-[5%] w-[350px] h-[350px] rounded-full bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 blur-[100px] animate-fluid-2"></div>
+  </div>
+
+  <!-- ================= LIQUID GLASS APP CONTAINER ================= -->
+  <div id="appContainer" class="z-10 w-full h-[100dvh] md:h-[80vh] md:max-h-[750px] md:max-w-sm md:rounded-3xl border-t border-l border-white/10 border-b border-r border-white/5 shadow-[0_32px_128px_rgba(0,0,0,0.6)] bg-white/[0.03] backdrop-blur-[35px] flex flex-col overflow-hidden relative">
+    
+    <!-- ================= PREMIUM TOAST NOTIFICATION CONTAINER ================= -->
+    <div id="toast" class="absolute top-4 left-4 right-4 z-50 transform -translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+      <div class="bg-rose-500/10 border border-rose-500/20 backdrop-blur-md text-rose-200 text-xs px-4 py-3 rounded-xl flex items-center gap-2 shadow-lg">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <span id="toastMessage" class="font-medium">An error occurred.</span>
+      </div>
+    </div>
+
+    <!-- ================= PAGE 1: JOIN WORKSPACE ================= -->
+    <div id="setupPage" class="flex-1 flex flex-col justify-between p-8 overflow-y-auto w-full relative z-10">
+      <div class="space-y-8 my-auto text-center flex flex-col justify-center">
+        
+        <!-- Peer chat Gloss Logo -->
+        <div class="space-y-3">
+          <div class="inline-flex p-4 bg-white/[0.04] border border-white/15 text-indigo-400 rounded-2xl mx-auto relative shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94-3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+            </svg>
+          </div>
+          <h1 class="text-xl font-bold tracking-[0.1em] text-white">Peer chat</h1>
+          <p class="text-xs text-zinc-400 font-light leading-relaxed max-w-[240px] mx-auto">Enter Room Code</p>
+        </div>
+
+        <!-- Glass Spaced Input -->
+        <div class="max-w-[200px] w-full mx-auto">
+          <input type="text" id="digitCode" maxLength="4" placeholder="0000" pattern="[0-9]*" inputmode="numeric"
+            class="w-full text-center text-4xl font-mono font-bold tracking-[0.35em] pl-4 py-4 bg-white/[0.02] border border-white/10 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/10 rounded-2xl outline-none text-white placeholder:text-zinc-700 shadow-inner">
+        </div>
+
+        <!-- Incognito Recommendation Badge -->
+        <div class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full bg-white/[0.02] border border-white/10 text-[10px] text-zinc-300 font-medium tracking-wide mx-auto max-w-[240px] backdrop-blur-md">
+          <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+          </svg>
+          <span>Use Incognito tab for best privacy</span>
+        </div>
+      </div>
+
+      <!-- Action Glass Button -->
+      <div class="mt-8">
+        <button id="connectBtn" onclick="startSession()" class="w-full py-4 bg-white text-zinc-950 hover:bg-zinc-100 active:scale-[0.99] text-sm font-semibold rounded-2xl shadow-[0_8px_32px_rgba(255,255,255,0.15)] hover:shadow-white/20 transition-all flex items-center justify-center gap-2">
+          <span>Connect</span>
+          <svg id="btnSpinner" class="hidden animate-spin h-4 w-4 text-zinc-950" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+
+    <!-- ================= PAGE 2: CHAT WORKSPACE ================= -->
+    <div id="chatPage" class="hidden flex-1 flex flex-col h-full bg-black/10 backdrop-blur-md relative z-10">
+      
+      <!-- Top Header Glass Nav -->
+      <header class="bg-white/[0.01] border-b border-white/10 px-6 py-4 flex items-center justify-between shrink-0 pt-[calc(env(safe-area-inset-top,16px)+12px)]">
+        <div class="flex items-center gap-3 min-w-0 flex-1 mr-4">
+          <div class="relative shrink-0">
+            <div id="headerAvatar" class="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/15 flex items-center justify-center text-zinc-300 text-sm font-semibold font-mono shadow-inner">
+              #
+            </div>
+            <span id="statusDot" class="absolute -bottom-0.5 -right-0.5 block h-2 w-2 rounded-full bg-amber-400 border border-[#0d0c13]"></span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 id="headerRoomTitle" class="text-sm font-bold text-white tracking-wide truncate">Room 0000</h2>
+            <p id="statusText" class="text-[10px] text-zinc-400 font-mono tracking-wider mt-0.5 truncate">Assigned: Peer 1</p>
+          </div>
+        </div>
+        
+        <button onclick="exitSession()" class="p-2.5 text-zinc-400 hover:text-zinc-200 rounded-xl hover:bg-white/[0.05] border border-transparent hover:border-white/10 transition-all shrink-0">
+          <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+          </svg>
+        </button>
+      </header>
+
+      <!-- Message Container -->
+      <div id="chatBodyWrapper" class="flex-1 flex flex-col relative overflow-hidden">
+        <!-- Absolute Empty State Badge (Fades once conversation starts) -->
+        <div id="emptyState" class="absolute inset-0 flex-1 flex flex-col items-center justify-center text-center p-6 space-y-3 z-0 select-none pointer-events-none transition-all duration-500">
+          <div class="p-4 bg-white/[0.02] border border-white/5 rounded-2xl text-indigo-400 shadow-inner">
+            <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0110.1 21a3.745 3.745 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296a3.746 3.746 0 013-12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+            </svg>
+          </div>
+          <p class="text-[9px] text-zinc-500 font-mono tracking-[0.2em] uppercase">E2E Secured Workspace</p>
+        </div>
+
+        <div id="messageContainer" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar flex flex-col z-10">
+          <!-- Messages inject dynamically -->
+        </div>
+      </div>
+
+      <!-- Input Glass Form and Hidden Upload Elements -->
+      <div class="p-4 bg-white/[0.01] border-t border-white/10 shrink-0 pb-[calc(env(safe-area-inset-bottom,16px)+16px)] relative">
+        
+        <!-- ================= FLOATING GLASS ACTION MENU (Docks on Right above Input Bar) ================= -->
+        <div id="actionMenu" class="absolute bottom-24 right-4 bg-[#0e0c12]/90 border border-white/10 backdrop-blur-2xl rounded-2xl p-1.5 hidden flex-col gap-1 w-32 shadow-[0_16px_48px_rgba(0,0,0,0.5)] z-40 scale-95 opacity-0 transition-all duration-300 transform origin-bottom-right">
+          <button type="button" onclick="triggerCamera()" class="flex items-center gap-2 px-3 py-2 text-[11px] font-medium text-zinc-200 hover:bg-white/[0.06] rounded-xl transition-all">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+            </svg>
+            <span>Camera</span>
+          </button>
+          <button type="button" onclick="triggerGallery()" class="flex items-center gap-2 px-3 py-2 text-[11px] font-medium text-zinc-200 hover:bg-white/[0.06] rounded-xl transition-all">
+            <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 00-2.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375 0 11-.75 0 .375 0 01.75 0z" />
+            </svg>
+            <span>Gallery</span>
+          </button>
+          <button type="button" onclick="toggleRecording()" class="flex items-center gap-2 px-3 py-2 text-[11px] font-medium text-zinc-200 hover:bg-white/[0.06] rounded-xl transition-all">
+            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+            </svg>
+            <span>Voice Note</span>
+          </button>
+        </div>
+
+        <!-- Hidden Native Upload Elements -->
+        <input type="file" id="cameraInput" accept="image/*,video/*" capture="environment" class="hidden" onchange="handleFileSelect(this)">
+        <input type="file" id="galleryInput" accept="image/*,video/*" class="hidden" onchange="handleFileSelect(this)">
+
+        <!-- Standard Message Input Container -->
+        <div id="inputFormGroup" class="flex items-center gap-2 w-full">
+          <form id="messageForm" onsubmit="event.preventDefault(); sendMessage();" class="flex items-center gap-2 w-full">
+            <input type="text" id="messageInput" autocomplete="off" placeholder="Write message..." class="flex-1 px-4 py-3 bg-white/[0.02] border border-white/10 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/10 text-sm text-white placeholder-zinc-500 rounded-xl outline-none transition-all">
+            
+            <button type="submit" class="p-3 bg-white text-zinc-950 rounded-xl hover:bg-zinc-100 transition-all active:scale-95 shadow-[0_4px_16px_rgba(255,255,255,0.1)] flex items-center justify-center shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+              </svg>
+            </button>
+
+            <!-- "+" Gloss Menu Trigger Button (Docks on Right Side) -->
+            <button id="plusBtn" type="button" onclick="toggleActionMenu()" class="p-3 bg-white/[0.02] border border-white/10 hover:bg-white/[0.06] text-zinc-300 hover:text-white rounded-xl transition-all flex items-center justify-center shrink-0 shadow-inner">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- ================= RECORDING OVERLAY TRAY ================= -->
+        <div id="recordingTray" class="hidden flex items-center justify-between gap-4 bg-white/[0.02] border border-white/10 rounded-2xl px-4 py-2.5 shadow-inner w-full backdrop-blur-lg">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping"></span>
+            <span id="recordTimer" class="font-mono text-sm text-zinc-200">00:00</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="cancelAudioRecording()" class="px-3 py-2.5 text-xs text-rose-400 font-semibold hover:bg-white/[0.03] rounded-xl transition-all">
+              Cancel
+            </button>
+            <button type="button" onclick="stopAndSendAudio()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-lg transition-all flex items-center justify-center">
+              Send
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let peer = null;
+    let conn = null;             
+    let connections = [];        
+    let isHost = false;
+    let myAssignedName = "";     
+    let roomCode = "";
+    let nextPeerNumber = 2;      
+
+    // Voice Recorder References
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordTimer = null;
+    let recordSeconds = 0;
+    let recordedType = 'audio/webm'; // Fallback MIME type
+
+    // Auto-formatting and Magic Auto-Submit implementation
+    document.getElementById('digitCode').addEventListener('input', function (e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+      if (this.value.length === 4) {
+        startSession();
+      }
+    });
+
+    // Cleanly intercept paste events and validate digits
+    document.getElementById('digitCode').addEventListener('paste', function (e) {
+      e.preventDefault();
+      const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+      const sanitizedDigits = pastedData.replace(/[^0-9]/g, '').slice(0, 4);
+      this.value = sanitizedDigits;
+      if (sanitizedDigits.length === 4) {
+        startSession();
+      }
+    });
+
+    // Native Custom Sliding Toast System
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      
+      toastMsg.textContent = message;
+      toast.classList.remove('-translate-y-24', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('-translate-y-24', 'opacity-0');
+      }, 4000);
+    }
+
+    async function startSession() {
+      const codeInput = document.getElementById('digitCode');
+      const btn = document.getElementById('connectBtn');
+      const spinner = document.getElementById('btnSpinner');
+
+      roomCode = codeInput.value.trim();
+
+      if (roomCode.length !== 4) {
+        showToast("Please enter a valid 4-digit code.");
+        return;
+      }
+
+      btn.disabled = true;
+      codeInput.disabled = true;
+      spinner.classList.remove('hidden');
+
+      setupAsHost();
+    }
+
+    // --- Host Orchestration (Peer 1) ---
+    function setupAsHost() {
+      const hostId = `peerchat-room-${roomCode}`;
+      peer = new Peer(hostId);
+
+      peer.on('open', () => {
+        isHost = true;
+        myAssignedName = "Peer 1";
+        
+        updateChatHeaderUI();
+        showPage('chatPage');
+        pushNavigationBlocker();
+        
+        peer.on('connection', (connection) => {
+          // Robust duplicate connection sweep: close any stale references
+          connections = connections.filter(c => {
+            if (c.connection.peer === connection.peer) {
+              try { c.connection.close(); } catch(e) {}
+              return false;
+            }
+            return true;
+          });
+
+          const assignedClientName = `Peer ${nextPeerNumber++}`;
+          connections.push({ connection, name: assignedClientName });
+
+          const assignHandshake = () => {
+            connection.send({ type: 'init', name: assignedClientName });
+          };
+
+          if (connection.open) {
+            assignHandshake();
+          } else {
+            connection.on('open', assignHandshake);
+          }
+
+          setupConnectionListeners(connection, assignedClientName);
+        });
+      });
+
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          peer.destroy();
+          setupAsClient();
+        } else {
+          console.error("Host Error Code:", err.type);
+          showToast(`Room initialization failed: ${err.type}`);
+          resetSetupButton();
+        }
+      });
+    }
+
+    // --- Client Orchestration (Peer 2, 3...) ---
+    function setupAsClient() {
+      peer = new Peer(); 
+
+      peer.on('open', () => {
+        isHost = false;
+        const hostId = `peerchat-room-${roomCode}`;
+        conn = peer.connect(hostId);
+        
+        setupConnectionListeners(conn, "Awaiting Identity");
+      });
+
+      peer.on('error', (err) => {
+        console.error("Client Error Code:", err.type);
+        if (err.type === 'peer-unavailable') {
+          showToast("No active host found in this room.");
+        } else {
+          showToast(`Negotiation dropped: ${err.type}`);
+        }
+        resetSetupButton();
+      });
+    }
+
+    // --- Data Stream Management ---
+    function setupConnectionListeners(connection, peerName) {
+      connection.on('data', (payload) => {
+        if (payload.type === 'init') {
+          myAssignedName = payload.name;
+          updateChatHeaderUI();
+          showPage('chatPage');
+          pushNavigationBlocker();
+        } else if (payload.type === 'msg') {
+          appendMessageBubble(payload.sender, payload.text, false);
+
+          if (isHost) {
+            connections.forEach(client => {
+              if (client.connection.peer !== connection.peer) {
+                client.connection.send(payload);
+              }
+            });
+          }
+        } else if (payload.type === 'file') {
+          // Direct WebRTC media stream receiver logic (Supports images, videos, audio notes)
+          appendFileBubble(payload.sender, payload.fileType, payload.data, false);
+
+          if (isHost) {
+            connections.forEach(client => {
+              if (client.connection.peer !== connection.peer) {
+                client.connection.send(payload);
+              }
+            });
+          }
+        }
+      });
+
+      connection.on('close', () => {
+        if (isHost) {
+          connections = connections.filter(c => c.connection.peer !== connection.peer);
+        } else {
+          document.getElementById('statusDot').className = "absolute -bottom-0.5 -right-0.5 block h-2 w-2 rounded-full bg-rose-500 border border-[#0d0c13]";
+          document.getElementById('statusText').textContent = "Connection Lost";
+          
+          showToast("Connection collapsed. Self-destructing session...");
+          setTimeout(selfDestructAndRedirect, 2000);
+        }
+      });
+    }
+
+    // --- Message Delivery Actions ---
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Prevent transmission into a vacuum (verify active connection bounds)
+      if (isHost && connections.filter(c => c.connection.open).length === 0) {
+        showToast("Awaiting a peer to connect before sending.");
+        return;
+      }
+      if (!isHost && (!conn || !conn.open)) {
+        showToast("Host not found. Re-check the connection.");
+        return;
+      }
+
+      const payload = { type: 'msg', sender: myAssignedName, text: text };
+
+      if (isHost) {
+        connections.forEach(client => {
+          if (client.connection.open) {
+            client.connection.send(payload);
+          }
+        });
+      } else {
+        if (conn && conn.open) {
+          conn.send(payload);
+        }
+      }
+
+      appendMessageBubble(myAssignedName, text, true);
+      input.value = "";
+    }
+
+    // --- Floating Menu Controls ---
+    function toggleActionMenu(forceState) {
+      const menu = document.getElementById('actionMenu');
+      const isHidden = menu.classList.contains('hidden');
+      const shouldShow = forceState !== undefined ? forceState : isHidden;
+
+      if (shouldShow) {
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+          menu.classList.remove('scale-95', 'opacity-0');
+          menu.classList.add('scale-100', 'opacity-100');
+        }, 10);
+      } else {
+        menu.classList.remove('scale-100', 'opacity-100');
+        menu.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+          menu.classList.add('hidden');
+        }, 300);
+      }
+    }
+
+    // Hide context menu automatically on outside page taps
+    window.addEventListener('click', (e) => {
+      const menu = document.getElementById('actionMenu');
+      const plusBtn = document.getElementById('plusBtn');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !plusBtn.contains(e.target)) {
+        toggleActionMenu(false);
+      }
+    });
+
+    function triggerCamera() {
+      toggleActionMenu(false);
+      document.getElementById('cameraInput').click();
+    }
+
+    // Explicitly target gallery input
+    function triggerGallery() {
+      toggleActionMenu(false);
+      document.getElementById('galleryInput').click();
+    }
+
+    // --- File Exchange & Streaming Logic ---
+    function handleFileSelect(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      if (file.size > 8 * 1024 * 1024) {
+        showToast("File is too large. P2P limit is 8MB.");
+        input.value = "";
+        return;
+      }
+
+      if (isHost && connections.filter(c => c.connection.open).length === 0) {
+        showToast("Awaiting a peer to connect before sharing.");
+        input.value = "";
+        return;
+      }
+      if (!isHost && (!conn || !conn.open)) {
+        showToast("Host not found. Re-check the connection.");
+        input.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const dataUrl = e.target.result;
+        const fileType = file.type.startsWith('image/') ? 'image' : 'video';
+        sendMediaPayload(fileType, dataUrl);
+        input.value = "";
+      };
+      
+      reader.readAsDataURL(file);
+    }
+
+    // Direct WebRTC payload transmitter
+    function sendMediaPayload(fileType, dataUrl) {
+      const payload = { 
+        type: 'file', 
+        fileType: fileType, 
+        data: dataUrl, 
+        sender: myAssignedName 
+      };
+
+      if (isHost) {
+        connections.forEach(client => {
+          if (client.connection.open) {
+            client.connection.send(payload);
+          }
+        });
+      } else {
+        if (conn && conn.open) {
+          conn.send(payload);
+        }
+      }
+
+      appendFileBubble(myAssignedName, fileType, dataUrl, true);
+    }
+
+    // --- P2P Voice Notes Recorder Engine ---
+    async function toggleRecording() {
+      toggleActionMenu(false);
+
+      if (isHost && connections.filter(c => c.connection.open).length === 0) {
+        showToast("Awaiting a peer to connect before recording.");
+        return;
+      }
+      if (!isHost && (!conn || !conn.open)) {
+        showToast("Host not found. Re-check the connection.");
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        
+        // Dynamic cross-browser audio codec detection (iOS / Android adaptive options)
+        let options = {};
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+          recordedType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+          recordedType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+          options = { mimeType: 'audio/aac' };
+          recordedType = 'audio/aac';
+        } else {
+          recordedType = 'audio/webm'; // Fallback MIME
+        }
+        
+        mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorder.ondataavailable = e => {
+          if (e.data && e.data.size > 0) {
+            audioChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          // Build blob utilizing pre-detected recordedType explicitly to avoid empty string mismatches
+          const finalMime = mediaRecorder.mimeType || recordedType;
+          const audioBlob = new Blob(audioChunks, { type: finalMime });
+          stream.getTracks().forEach(track => track.stop()); // Terminate microphone usage
+
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            sendMediaPayload('audio', e.target.result);
+          };
+          reader.readAsDataURL(audioBlob);
+        };
+
+        // Transition UI states cleanly
+        document.getElementById('inputFormGroup').classList.add('hidden');
+        document.getElementById('recordingTray').classList.remove('hidden');
+
+        mediaRecorder.start();
+        recordSeconds = 0;
+        document.getElementById('recordTimer').textContent = "00:00";
+        
+        recordTimer = setInterval(() => {
+          recordSeconds++;
+          const mins = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
+          const secs = String(recordSeconds % 60).padStart(2, '0');
+          document.getElementById('recordTimer').textContent = `${mins}:${secs}`;
+        }, 1000);
+
+      } catch(err) {
+        console.error(err);
+        showToast("Microphone permissions denied or unavailable.");
+      }
+    }
+
+    function stopAndSendAudio() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        clearInterval(recordTimer);
+        resetRecordingUI();
+      }
+    }
+
+    // Cancel recording securely without triggering compiler payload
+    function cancelAudioRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.onstop = null; 
+        mediaRecorder.stop();
+        clearInterval(recordTimer);
+        resetRecordingUI();
+      }
+    }
+
+    function resetRecordingUI() {
+      document.getElementById('inputFormGroup').classList.remove('hidden');
+      document.getElementById('recordingTray').classList.add('hidden');
+    }
+
+    // --- Self-Destruct & Privacy History Nuke ---
+    function selfDestructAndRedirect() {
+      if (peer) {
+        try { peer.destroy(); } catch(e) {}
+        peer = null;
+      }
+      if (conn) {
+        try { conn.close(); } catch(e) {}
+        conn = null;
+      }
+
+      myAssignedName = null;
+      roomCode = null;
+      nextPeerNumber = null;
+      connections = [];
+
+      const container = document.getElementById('messageContainer');
+      if (container) container.innerHTML = '';
+      
+      const app = document.getElementById('appContainer');
+      if (app) app.innerHTML = '<div class="flex items-center justify-center h-full text-zinc-600 font-mono text-xs">Purging space...</div>';
+
+      window.history.replaceState(null, "", "about:blank");
+      window.location.replace("about:blank");
+    }
+
+    // Capture tab close/refresh to clean state
+    window.addEventListener('beforeunload', selfDestructAndRedirect);
+    window.addEventListener('pagehide', selfDestructAndRedirect);
+
+    // Dynamic Popstate Lock: Shred the workspace if user clicks device Back/swipe gesture
+    function pushNavigationBlocker() {
+      window.history.pushState({ app: "peerchat-session" }, "");
+    }
+    window.addEventListener('popstate', (e) => {
+      selfDestructAndRedirect();
+    });
+
+    // --- UI Layout Transitions ---
+    function showPage(pageId) {
+      document.getElementById('setupPage').classList.add('hidden');
+      document.getElementById('chatPage').classList.add('hidden');
+      document.getElementById(pageId).classList.remove('hidden');
+    }
+
+    function resetSetupButton() {
+      const codeInput = document.getElementById('digitCode');
+      const btn = document.getElementById('connectBtn');
+      const spinner = document.getElementById('btnSpinner');
+      
+      btn.disabled = false;
+      codeInput.disabled = false;
+      spinner.classList.add('hidden');
+    }
+
+    function updateChatHeaderUI() {
+      document.getElementById('headerAvatar').textContent = roomCode.slice(0, 2);
+      document.getElementById('headerRoomTitle').textContent = `Room ${roomCode}`;
+      document.getElementById('statusText').textContent = `Assigned: ${myAssignedName}`;
+      document.getElementById('statusDot').className = "absolute -bottom-0.5 -right-0.5 block h-2 w-2 rounded-full bg-emerald-500 border border-[#0d0c13]";
+    }
+
+    function removeEmptyStateIfPresent() {
+      const emptyState = document.getElementById('emptyState');
+      if (emptyState && !emptyState.classList.contains('opacity-0')) {
+        emptyState.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => emptyState.remove(), 500);
+      }
+    }
+
+    function appendMessageBubble(sender, message, isSelf) {
+      const container = document.getElementById('messageContainer');
+      removeEmptyStateIfPresent();
+
+      const bubbleWrapper = document.createElement('div');
+      bubbleWrapper.className = `flex flex-col max-w-[80%] ${isSelf ? 'self-end items-end' : 'self-start items-start'}`;
+
+      const nameLabel = `
+        <span class="text-[10px] text-zinc-500 font-mono tracking-wider px-2 mb-1 truncate max-w-full">
+          ${isSelf ? 'You' : escapeHTML(sender)}
+        </span>
+      `;
+
+      const bubbleContent = `
+        <div class="px-4 py-2.5 text-[13px] rounded-2xl leading-relaxed break-words shadow-md ${
+          isSelf 
+            ? 'bg-white/90 text-zinc-950 font-semibold rounded-tr-none shadow-[0_4px_16px_rgba(255,255,255,0.1)]' 
+            : 'bg-white/[0.04] border border-white/10 text-zinc-100 rounded-tl-none'
+        }">
+          ${escapeHTML(message)}
+        </div>
+      `;
+
+      bubbleWrapper.innerHTML = nameLabel + bubbleContent;
+      container.appendChild(bubbleWrapper);
+      
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function appendFileBubble(sender, fileType, dataUrl, isSelf) {
+      const container = document.getElementById('messageContainer');
+      removeEmptyStateIfPresent();
+
+      const bubbleWrapper = document.createElement('div');
+      bubbleWrapper.className = `flex flex-col max-w-[85%] ${isSelf ? 'self-end items-end' : 'self-start items-start'}`;
+
+      const nameLabel = `
+        <span class="text-[10px] text-zinc-500 font-mono tracking-wider px-2 mb-1 truncate max-w-full">
+          ${isSelf ? 'You' : escapeHTML(sender)}
+        </span>
+      `;
+
+      let mediaContent = '';
+      if (fileType === 'image') {
+        mediaContent = `
+          <img src="${dataUrl}" class="w-full h-auto object-cover rounded-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-transform hover:scale-[1.01]" alt="P2P Shared Image" loading="lazy">
+        `;
+      } else if (fileType === 'video') {
+        mediaContent = `
+          <video src="${dataUrl}" controls playsinline class="w-full h-auto max-h-[300px] rounded-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" preload="metadata"></video>
+        `;
+      } else if (fileType === 'audio') {
+        // High-fidelity adaptive audio card (preload="auto" forces eager compilation to fix Safari codecs)
+        mediaContent = `
+          <div class="flex items-center gap-2.5 py-1 min-w-[190px] max-w-full overflow-hidden">
+            <div class="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400 shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+              </svg>
+            </div>
+            <audio src="${dataUrl}" controls preload="auto" class="w-full max-w-[150px] h-8 opacity-80 shrink-0 min-w-0"></audio>
+          </div>
+        `;
+      }
+
+      const bubbleContent = `
+        <div class="p-1.5 rounded-[22px] ${
+          isSelf 
+            ? 'bg-white/[0.08] border border-white/10' 
+            : 'bg-white/[0.04] border border-white/5'
+        }">
+          ${mediaContent}
+        </div>
+      `;
+
+      bubbleWrapper.innerHTML = nameLabel + bubbleContent;
+      container.appendChild(bubbleWrapper);
+      
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Escape raw HTML strings safely
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+
+    function exitSession() {
+      if (confirm("Disconnect and collapse this P2P tunnel? All logs will self-destruct.")) {
+        selfDestructAndRedirect();
+      }
+    }
+  </script>
+</body>
+</html>
